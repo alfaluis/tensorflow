@@ -124,5 +124,51 @@ train_batches = BatchGenerator(train_text, batch_size, num_unrollings)
 print(batches2string(train_batches.next()))
 print(batches2string(train_batches.next()))
 
+num_nodes = 64
+
+graph = tf.Graph()
+with graph.as_default():
+    # Parameters:
+    # Input gate: input, previous output, and bias.
+    ix = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1))
+    im = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1))
+    ib = tf.Variable(tf.zeros([1, num_nodes]))
+    # Forget gate: input, previous output, and bias.
+    fx = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1))
+    fm = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1))
+    fb = tf.Variable(tf.zeros([1, num_nodes]))
+    # Memory cell: input, state and bias.
+    cx = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1))
+    cm = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1))
+    cb = tf.Variable(tf.zeros([1, num_nodes]))
+    # Output gate: input, previous output, and bias.
+    ox = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1))
+    om = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1))
+    ob = tf.Variable(tf.zeros([1, num_nodes]))
+    # Variables saving state across unrollings.
+    saved_output = tf.Variable(tf.zeros([batch_size, num_nodes]), trainable=False)
+    saved_state = tf.Variable(tf.zeros([batch_size, num_nodes]), trainable=False)
+    # Classifier weights and biases.
+    w = tf.Variable(tf.truncated_normal([num_nodes, vocabulary_size], -0.1, 0.1))
+    b = tf.Variable(tf.zeros([vocabulary_size]))
+
+
+    def lstm_cell(i, o, state):
+        """ Create a LSTM cell. See e.g.: http://colah.github.io/posts/2015-08-Understanding-LSTMs/
+
+        :param i: Input sample
+        :param o: Old output of the cell (h_t-1)
+        :param state: Old state of the cell (C_t-1)
+        :return: New output cell (h_t), New state cell (C_t)
+        """
+        # input gate applied a sigmod function as activation
+        i_t = tf.sigmoid(tf.matmul(i, ix) + tf.matmul(o, im) + ib)
+        # forget gate = w_x * i + w_h * o + b_f
+        f_t = tf.sigmoid(tf.matmul(i, fx) + tf.matmul(o, fm) + fb)
+        # cell candidate = 
+        c_tau = tf.matmul(i, cx) + tf.matmul(o, cm) + cb
+        c_t = f_t * state + i_t * tf.tanh(c_tau)
+        o_t = tf.sigmoid(tf.matmul(i, ox) + tf.matmul(o, om) + ob)
+        return o_t * tf.tanh(c_t), c_t
 
 
