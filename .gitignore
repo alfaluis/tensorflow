@@ -1,0 +1,7 @@
+# Created by .ignore support plugin (hsz.mobi)
+./test_data/*
+./train_data/*
+./text8.zip
+./test.py
+.idea/*
+./notMNIST.pickle
