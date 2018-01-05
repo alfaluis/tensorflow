@@ -129,19 +129,19 @@ num_nodes = 64
 graph = tf.Graph()
 with graph.as_default():
     # Parameters:
-    # Input gate: input, previous output, and bias.
+    # Input gate: input, old output cell, and bias.
     ix = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1))
     im = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1))
     ib = tf.Variable(tf.zeros([1, num_nodes]))
-    # Forget gate: input, previous output, and bias.
+    # Forget gate: input, old output, and bias.
     fx = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1))
     fm = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1))
     fb = tf.Variable(tf.zeros([1, num_nodes]))
-    # Memory cell: input, state and bias.
+    # Memory cell: input, old state cell and bias.
     cx = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1))
     cm = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1))
     cb = tf.Variable(tf.zeros([1, num_nodes]))
-    # Output gate: input, previous output, and bias.
+    # Output gate: input, old output, and bias.
     ox = tf.Variable(tf.truncated_normal([vocabulary_size, num_nodes], -0.1, 0.1))
     om = tf.Variable(tf.truncated_normal([num_nodes, num_nodes], -0.1, 0.1))
     ob = tf.Variable(tf.zeros([1, num_nodes]))
@@ -161,13 +161,15 @@ with graph.as_default():
         :param state: Old state of the cell (C_t-1)
         :return: New output cell (h_t), New state cell (C_t)
         """
-        # input gate applied a sigmod function as activation
+        # input gate = w_xi * i + w_hi * o + b_i
         i_t = tf.sigmoid(tf.matmul(i, ix) + tf.matmul(o, im) + ib)
-        # forget gate = w_x * i + w_h * o + b_f
+        # forget gate = w_xf * i + w_hf * o + b_f
         f_t = tf.sigmoid(tf.matmul(i, fx) + tf.matmul(o, fm) + fb)
-        # cell candidate = 
+        # cell candidate = tanh(w_xc * i + w_hc * o + b_c)
         c_tau = tf.matmul(i, cx) + tf.matmul(o, cm) + cb
+        # new cell state = forget * old_cell_state + input * cell_candidate
         c_t = f_t * state + i_t * tf.tanh(c_tau)
+        # output gate = sigmod(w_xo * i + w_ho * o + b_o)
         o_t = tf.sigmoid(tf.matmul(i, ox) + tf.matmul(o, om) + ob)
         return o_t * tf.tanh(c_t), c_t
 
