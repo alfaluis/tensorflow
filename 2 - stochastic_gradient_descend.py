@@ -66,9 +66,10 @@ def train_test_gradient_descend(graph, train_dataset, train_labels, valid_datase
         # should produce the same output as ... (axis=1 indicate along all columns)
         softmax_out = session.run(tf.nn.softmax(prediction))
         cross_entropy_out = -np.sum(np.multiply(target, np.log(softmax_out)), axis=1)
-
+        loss = np.mean(cross_entropy_out)
         # this operation
         session.run(tf.nn.softmax_cross_entropy_with_logits(labels=target, logits=prediction))
+        session.run(tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=target, logits=prediction)))
         """
         # Optimizer.
         # We are going to find the minimum of this loss using gradient descent.

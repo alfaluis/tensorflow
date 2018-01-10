@@ -188,12 +188,66 @@ def lstm_cell(i, o, state):
     return o_t * tf.tanh(c_t), c_t
 
 # Input data.
+# We need to pass a train example and label to each cell or lstm model
 train_data = list()
 for _ in range(num_unrollings + 1):
-    train_data.append(
-        tf.placeholder(tf.float32, shape=[batch_size, vocabulary_size]))
+    train_data.append(tf.placeholder(tf.float32, shape=[batch_size, vocabulary_size]))
 train_inputs = train_data[:num_unrollings]
 train_labels = train_data[1:]  # labels are inputs shifted by one time step.
 
-for b in range(_batch_size):
-    print(_text[_cursor[b]])
+# Unrolled LSTM loop.
+# Pass to each cell a different training example
+# Note that iteratively we pass the the last output (h_(t-1)) and state (c_(t-1)) to the new cell
+outputs = list()
+output = saved_output
+state = saved_state
+for i in train_inputs:
+    output, state = lstm_cell(i, output, state)
+    outputs.append(output)
+
+# State saving across unrollings.
+with tf.control_dependencies([saved_output.assign(output),
+                              saved_state.assign(state)]):
+    # Classifier.
+    # in order to apply a fast classification and error propagation we concat each output
+    # and put it in a simple vector. Each cell has an output of 64x64 (batch_size, hidden_size)
+    # so tf.concat produce a vector if 640X64 (64(bath_size)x10 cells and 64 hidden_nodes)
+    logits = tf.nn.xw_plus_b(tf.concat(outputs, 0), w, b)
+    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=tf.concat(train_labels, 0), logits=logits))
+
+print(tf.concat(train_labels, 0).shape)
+print(logits.shape)
+print(loss.shape)
+# Optimizer.
+global_step = tf.Variable(0)
+learning_rate = tf.train.exponential_decay(
+    10.0, global_step, 5000, 0.1, staircase=True)
+optimizer = tf.train.GradientDescentOptimizer(0.5)
+gradient_v = optimizer.compute_gradients(loss, tf.trainable_variables())
+# gradients, _ = tf.clip_by_global_norm(gradient, 1.25)
+# optimizer = optimizer.apply_gradients(zip(gradients, v), global_step=global_step)
+
+# Predictions.
+train_prediction = tf.nn.softmax(logits)
+
+
+num_steps = 1001
+summary_frequency = 100
+
+with tf.Session() as session:
+    tf.global_variables_initializer().run()
+    print('Initialized')
+    mean_loss = 0
+    for step in range(num_steps):
+        batches = train_batches.next()
+        feed_dict = dict()
+        for i in range(num_unrollings + 1):
+            feed_dict[train_data[i]] = batches[i]
+        gr, l, predictions, lr = sess.run([loss, train_prediction, learning_rate, gradient_v], feed_dict=feed_dict)
+        mean_loss += l
+        if step % 10 == 0:
+            for g, v in lr:
+                if g is not None:
+                    print("****************this is gradient*************")
+                    print("gradient's shape:", g.shape)
+                    print(g)
